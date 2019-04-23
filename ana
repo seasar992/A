@@ -1,0 +1,102 @@
+Sub オクターブ分析()
+    
+Dim i As Long, M As Long, N As Long, DataC As Long
+Dim dat As Single, cal1 As Single, G As Single
+Dim N0 As Long, dc As Integer
+Dim fm As Single, f1 As Single, f2 As Single, f3 As Single
+On Error GoTo Err1
+
+Errcode = "000"
+
+dc = 4 '結果表示のセル番号
+
+Range(Cells(1, 4), Cells(65536, 5)).ClearContents
+
+'データ無しをチェック
+If IsEmpty(Cells(1, 1)) = True Then
+    MsgBox "分析対象データが存在しません。"
+Exit Sub
+End If
+
+
+G = 10 ^ 0.3
+N0 = 12 'バンド初期No
+DataC = 1
+
+
+
+For N = N0 + 1 To 43 'バンドNo
+    
+Errcode = "001"
+    
+    fm = G ^ (N / 3)  '中心周波数
+    f1 = fm / (2 ^ (1 / 6))  '下限周波数
+    f2 = fm * (2 ^ (1 / 6))  '上限周波数
+    f3 = fm * (2 ^ (1 / 12))
+
+
+'バンドの始点をサーチ
+'(最初一度だけ実行される）
+    
+    Do While (Cells(DataC, 1) < f1)
+        DataC = DataC + 1
+        If datacheck(DataC) = False Then Exit Do
+    Loop
+
+    
+    If datacheck(DataC) = False Then Exit For
+
+
+    cal1 = 0
+'バンドの終点まで二乗加算
+    Do While (Cells(DataC, 1) <= f2)
+        dat = Cells(DataC, 2)
+        cal1 = cal1 + 10 ^ (0.1 * dat)
+        DataC = DataC + 1
+        
+        If datacheck(DataC) = False Then
+            If Cells(DataC - 1, 1) <= f3 Then cal1 = 0
+            Exit Do
+        End If
+    
+    Loop
+
+Errcode = "002"
+
+'周波数を書き込み
+    Cells(N - N0, dc) = Round(fm, 1)
+
+    
+'結果を書き込み
+    If cal1 = 0 Then 'データがヒットしなかった場合
+        Cells(N - N0, dc + 1) = Empty
+    Else
+        cal1 = 10 * Log(cal1) / Log(10)
+        Cells(N - N0, dc + 1) = cal1
+    End If
+
+    
+    If datacheck(DataC) = False Then Exit For
+
+Next N
+
+Exit Sub
+
+Err1:
+    MsgBox "オクターブバンドの計算でエラーが発生しました。" & Chr(13) & "code= " & Errcode, vbExclamation
+End Sub
+
+
+Function datacheck(DataC As Long) As Boolean
+datacheck = True
+
+        If DataC > 65536 Then
+        datacheck = False
+        Exit Function
+        End If
+        If IsEmpty(Cells(DataC, 1)) = True Then
+        datacheck = False
+        Exit Function
+        End If
+
+End Function
