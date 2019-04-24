@@ -1,4 +1,4 @@
-Sub オクターブ分析()
+Sub AAA()
     
 Dim i As Long, M As Long, N As Long, DataC As Long
 Dim dat As Single, cal1 As Single, G As Single
