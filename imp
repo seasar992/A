@@ -1,128 +1,107 @@
-Sub WaveSpectra_WSOファイル取り込み()
+Sub AAA()
     
-    Dim filename As String, SeetName As String, Errcode As String
-    
-    Dim newBook As Workbook
-    Dim i As Long, M As Long, N As Long, DataC As Long
-    Dim moni1 As Single, moni2 As Single, moni3 As Single 'デバッグ用モニタ
-    On Error GoTo Err1
-
-Application.ScreenUpdating = False
-Application.Calculation = xlCalculationManual
-
-
+Dim i As Long, M As Long, N As Long, DataC As Long
+Dim dat As Single, cal1 As Single, G As Single
+Dim N0 As Long, dc As Integer
+Dim fm As Single, f1 As Single, f2 As Single, f3 As Single
+On Error GoTo Err1
 
 Errcode = "000"
 
-' WSのファイルをcsv変換してエクセルに読み込む
-    
-    filename = Application.GetOpenFilename("WaveSpectra ｵｰﾊﾞｰﾚｨﾌｧｲﾙ,*.WSO")
-    If filename <> "False" Then
-        NewName = Left(filename, Len(filename) - 4)
-        NewName = NewName & ".CSV"
-        SeetName = ExistFilename(NewName)
-        If ExistBook(SeetName) Then Workbooks(SeetName).Close
-        FileCopy filename, NewName
-        Workbooks.Open NewName
-    Else
-        Exit Sub
-    End If
-    
+dc = 4 '結果表示のセル番号
 
-' Amplitudeの配列に値を入れる
+Range(Cells(1, 4), Cells(65536, 5)).ClearContents
 
+'データ無しをチェック
+If IsEmpty(Cells(1, 1)) = True Then
+    MsgBox "分析対象データが存在しません。"
+Exit Sub
+End If
+
+
+G = 10 ^ 0.3
+N0 = 12 'バンド初期No
+DataC = 1
+
+
+
+For N = N0 + 1 To 43 'バンドNo
+    
 Errcode = "001"
+    
+    fm = G ^ (N / 3)  '中心周波数
+    f1 = fm / (2 ^ (1 / 6))  '下限周波数
+    f2 = fm * (2 ^ (1 / 6))  '上限周波数
+    f3 = fm * (2 ^ (1 / 12))
 
 
-Dim FFTpoint As Long: FFTpoint = Workbooks(SeetName).ActiveSheet.Cells(4, 2)
-Dim SamplingFreq As Long: SamplingFreq = Workbooks(SeetName).ActiveSheet.Cells(3, 2)
-Dim DataNumber As Long: DataNumber = Workbooks(SeetName).ActiveSheet.Cells(5, 2)
-'Dim BlockLength As Integer: BlockLength = FFTpoint / SamplingFreq
-
-Dim Amplitude(65536) As Single
-Dim FrequencyInterval As Single
-
-FrequencyInterval = SamplingFreq / FFTpoint
-
-    M = Workbooks(SeetName).ActiveSheet.Cells(4, 2) / 16 + 6
-    DataC = 1
-    For N = 6 To M
-    For i = 1 To 8
-        Amplitude(DataC) = Workbooks(SeetName).ActiveSheet.Cells(N, i)
+'バンドの始点をサーチ
+'(最初一度だけ実行される）
+    
+    Do While (Cells(DataC, 1) < f1)
         DataC = DataC + 1
-        If DataC = 65537 Then Exit For
+        If datacheck(DataC) = False Then Exit Do
+    Loop
 
-    Next i
-        If DataC = 65537 Then Exit For
-    Next N
+    
+    If datacheck(DataC) = False Then Exit For
 
 
-
-' 縦行の制限から65536ポイント以上のFFTはサポート外。
+    cal1 = 0
+'バンドの終点まで二乗加算
+    Do While (Cells(DataC, 1) <= f2)
+        dat = Cells(DataC, 2)
+        cal1 = cal1 + 10 ^ (0.1 * dat)
+        DataC = DataC + 1
+        
+        If datacheck(DataC) = False Then
+            If Cells(DataC - 1, 1) <= f3 Then cal1 = 0
+            Exit Do
+        End If
+    
+    Loop
 
 Errcode = "002"
 
-ThisWorkbook.Activate
+'周波数を書き込み
+    Cells(N - N0, dc) = Round(fm, 1)
 
-DataNumber = Application.WorksheetFunction.Min(DataNumber, 65536)
-Range(Cells(1, 1), Cells(65536, 3)).ClearContents
-
-Dim freq As Single, Value As Single, LogValue As Single
-
-' 値を一列に書き出す Amplitudeはなぜか２倍しないと合わない
-
-    For i = 1 To DataNumber
-        freq = FrequencyInterval * (i - 1)
-        Value = 2 * Amplitude(i)
-        LogValue = 20 * Log(Value / 32768) / Log(10)
-        Cells(i, 1) = freq
-        Cells(i, 3) = Value
-        Cells(i, 2) = LogValue
-    Next i
-
-    Workbooks(SeetName).Close
     
-Application.Calculation = xlCalculationAutomatic
-Application.Calculate
-Application.ScreenUpdating = True
+'結果を書き込み
+    If cal1 = 0 Then 'データがヒットしなかった場合
+        Cells(N - N0, dc + 1) = Empty
+    Else
+        cal1 = 10 * Log(cal1) / Log(10)
+        Cells(N - N0, dc + 1) = cal1
+    End If
 
+    
+    If datacheck(DataC) = False Then Exit For
+
+Next N
 
 Exit Sub
 
 Err1:
-    MsgBox "ファイルインポートでエラーが発生しました。" & Chr(13) & "code= " & Errcode, vbExclamation
- '   MsgBox Str(freq) & " " & Str(Value) & " " & Str(LogValuee), vbExclamation
-'    Workbooks(SeetName).Close
-
-
-
+    MsgBox "オクターブバンドの計算でエラーが発生しました。" & Chr(13) & "code= " & Errcode, vbExclamation
 End Sub
 
-Function ExistFilename(filepath) As String
 
-    Dim PathName As String, filename As String, pos As Long
-    
-    pos = InStrRev(filepath, "\")
-    'PathName = Left(filepath, pos)
-    ExistFilename = Mid(filepath, pos + 1)
+Function datacheck(DataC As Long) As Boolean
+datacheck = True
 
-End Function
-
-
-
-Function ExistBook(BookName) As Boolean
-    '引数 BookName のブックが実際にあるかチェックする
-    
-    Dim i As Integer, cnt As Integer
-    
-    cnt = Workbooks.Count
-    ExistBook = False
-    For i = 1 To cnt
-        If Workbooks(i).Name = BookName Then
-            ExistBook = True
-            Exit For
+        If DataC > 65536 Then
+        datacheck = False
+        Exit Function
         End If
-    Next
+        If IsEmpty(Cells(DataC, 1)) = True Then
+        datacheck = False
+        Exit Function
+        End If
+
 End Function
-
-
+https://blog.csdn.net/luckywang1103/article/details/81003238
+https://blog.csdn.net/CSDN2016DDDD/article/details/79958339
+http://blog.sina.com.cn/s/blog_7231cd0d0101rkzp.html
+https://github.com/python-acoustics/python-acoustics/blob/master/acoustics/standards/iec_61260_1_2014.py
+https://blog.csdn.net/shiner3089/article/details/50389330
