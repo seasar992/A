@@ -1,3 +1,74 @@
+Sub ProcessFile()
+
+    Dim ws As Worksheet
+    Dim InputPath As String
+    Dim LastElement As String
+    Dim OutputPath As String
+    Dim LineContent As String
+    Dim Elements() As String
+    Dim FileContent As String
+    Dim Lines() As String
+    Dim i As Long
+
+    ' Step 1: 获取指定Sheet的第一个单元格作为输入文件的路径
+    Set ws = ThisWorkbook.Sheets("Sheet1") ' 更改Sheet名称如有必要
+    InputPath = ws.Cells(1, 1).Value
+
+    ' 输出文件的路径（这里我设为同一个文件夹下，名为"Output.txt"的文件）
+    OutputPath = ThisWorkbook.Path & "\Output.txt"
+
+    ' 使用 ADODB.Stream 读取文件内容
+    Dim oStream As Object
+    Set oStream = CreateObject("ADODB.Stream")
+    oStream.Open
+    oStream.Type = 1 'Binary
+    oStream.LoadFromFile InputPath
+
+    ' 转换为 UTF-8 编码
+    oStream.Type = 2 'Text
+    oStream.Charset = "utf-8"
+    FileContent = oStream.ReadText
+
+    oStream.Close
+    Set oStream = Nothing
+
+    ' 将文件内容分割为行
+    Lines = Split(FileContent, vbCrLf)
+
+    ' 打开输出文件
+    Dim OutputFile As Integer
+    OutputFile = FreeFile
+    Open OutputPath For Output As #OutputFile
+
+    For i = LBound(Lines) To UBound(Lines)
+        LineContent = Lines(i)
+
+        ' Step 3: 把每一行内容用逗号分隔，并且获取最后一个元素的内容
+        Elements = Split(LineContent, ",")
+        LastElement = Elements(UBound(Elements))
+
+        ' Step 4: 判断最后一个元素的数据是否为日期类型，如果是的话就输出到新文件中
+        If IsDate(LastElement) Then
+            Print #OutputFile, LineContent
+        End If
+    Next i
+
+    ' 关闭文件
+    Close #OutputFile
+
+    MsgBox "处理完毕，结果已保存在: " & OutputPath
+
+End Sub
+
+
+
+
+
+
+
+
+
+
 # -*- coding: utf-8 -*-
 
 import sys
